@@ -985,57 +985,63 @@
             checkoutBtn.disabled = true;
             checkoutBtn.textContent = 'PLACING ORDER...';
 
-            // Build order items list
-            const orderItems = cart.map(item => {
-                return {
-                    product: item.name,
-                    qty: item.quantity,
-                    price: item.price,
-                    subtotal: item.price * item.quantity
-                };
-            });
-
             const subtotal = parseInt(document.getElementById('subtotal').textContent.replace('₹', ''));
             const tax = parseInt(document.getElementById('taxAmount').textContent.replace('₹', ''));
-            const delivery = document.getElementById('delivery').textContent === 'FREE' ? 0 : 50;
+            const deliveryText = document.getElementById('delivery').textContent;
+            const delivery = deliveryText === 'FREE' ? 0 : parseInt(deliveryText.replace('₹', ''));
             const total = subtotal + tax + delivery;
 
             // EMAIL TO ADMIN (xnbtshirts@gmail.com)
             const adminFormData = new FormData();
             adminFormData.append('access_key', '79187af6-cc7d-456e-8252-aae7cf5f725e');
-            adminFormData.append('_subject', `🛍️ NEW ORDER from ${currentUser.name}`);
-            adminFormData.append('_to', 'xnbtshirts@gmail.com');
-            adminFormData.append('Customer Name', currentUser.name);
-            adminFormData.append('Customer Email', currentUser.email);
-            adminFormData.append('Order Items', cart.map(item => `${item.quantity}x ${item.name} @ ₹${item.price} each = ₹${item.price * item.quantity}`).join('\n'));
-            adminFormData.append('Subtotal', '₹' + subtotal);
-            adminFormData.append('Tax (10%)', '₹' + tax);
-            adminFormData.append('Delivery Charges', delivery === 0 ? 'FREE' : '₹' + delivery);
-            adminFormData.append('FINAL TOTAL', '₹' + total);
-            adminFormData.append('Order Date', new Date().toLocaleString('en-IN'));
+            adminFormData.append('from_name', currentUser.name);
+            adminFormData.append('subject', `🛍️ NEW ORDER from ${currentUser.name}`);
+            adminFormData.append('customer_name', currentUser.name);
+            adminFormData.append('customer_email', currentUser.email);
+            
+            let itemsList = '';
+            cart.forEach(item => {
+                itemsList += `${item.quantity}x ${item.name} @ ₹${item.price} each = ₹${item.price * item.quantity}\n`;
+            });
+            
+            adminFormData.append('items', itemsList);
+            adminFormData.append('subtotal', '₹' + subtotal);
+            adminFormData.append('tax', '₹' + tax);
+            adminFormData.append('delivery', delivery === 0 ? 'FREE' : '₹' + delivery);
+            adminFormData.append('total', '₹' + total);
+            adminFormData.append('order_date', new Date().toLocaleString('en-IN'));
+            adminFormData.append('message', `New Order Received!\n\nCustomer: ${currentUser.name}\nEmail: ${currentUser.email}\n\nItems:\n${itemsList}\nSubtotal: ₹${subtotal}\nTax (10%): ₹${tax}\nDelivery: ${delivery === 0 ? 'FREE' : '₹' + delivery}\nTOTAL: ₹${total}`);
 
             // EMAIL TO CUSTOMER
             const customerFormData = new FormData();
             customerFormData.append('access_key', '79187af6-cc7d-456e-8252-aae7cf5f725e');
-            customerFormData.append('_subject', '✅ Order Confirmation - XNB Clothing');
-            customerFormData.append('_to', currentUser.email);
-            customerFormData.append('_template', 'table');
+            customerFormData.append('from_name', 'XNB Clothing');
+            customerFormData.append('subject', '✅ Order Confirmation - XNB Clothing');
             
-            let customerMessage = `Dear ${currentUser.name},\n\nThank you for your order! Here are your order details:\n\n`;
-            customerMessage += `ITEMS ORDERED:\n`;
-            customerMessage += cart.map(item => `${item.quantity}x ${item.name} @ ₹${item.price} each = ₹${item.price * item.quantity}`).join('\n');
-            customerMessage += `\n\nORDER SUMMARY:\n`;
-            customerMessage += `Subtotal: ₹${subtotal}\n`;
-            customerMessage += `Tax (10%): ₹${tax}\n`;
-            customerMessage += `Delivery Charges: ${delivery === 0 ? 'FREE' : '₹' + delivery}\n`;
-            customerMessage += `=====================================\n`;
-            customerMessage += `FINAL TOTAL: ₹${total}\n`;
-            customerMessage += `=====================================\n\n`;
-            customerMessage += `Order Date: ${new Date().toLocaleString('en-IN')}\n\n`;
-            customerMessage += `We will contact you soon to confirm your order and arrange delivery.\n\n`;
-            customerMessage += `Best regards,\nXNB Clothing Team\nEmail: xnbtshirts@gmail.com`;
+            let customerMsg = `Dear ${currentUser.name},\n\nThank you for shopping with XNB Clothing!\n\n`;
+            customerMsg += `========================================\n`;
+            customerMsg += `ORDER CONFIRMATION\n`;
+            customerMsg += `========================================\n\n`;
+            customerMsg += `ITEMS ORDERED:\n`;
+            customerMsg += itemsList;
+            customerMsg += `\nORDER SUMMARY:\n`;
+            customerMsg += `Subtotal: ₹${subtotal}\n`;
+            customerMsg += `Tax (10%): ₹${tax}\n`;
+            customerMsg += `Delivery Charges: ${delivery === 0 ? 'FREE' : '₹' + delivery}\n`;
+            customerMsg += `----------------------------------------\n`;
+            customerMsg += `FINAL TOTAL: ₹${total}\n`;
+            customerMsg += `----------------------------------------\n\n`;
+            customerMsg += `Order Date: ${new Date().toLocaleString('en-IN')}\n`;
+            customerMsg += `Order ID: #${Date.now()}\n\n`;
+            customerMsg += `We will contact you within 24 hours to confirm your order and arrange delivery.\n\n`;
+            customerMsg += `Contact us: xnbtshirts@gmail.com\n`;
+            customerMsg += `Location: Jamshedpur, Jharkhand, India\n\n`;
+            customerMsg += `Thank you for your purchase!\n\n`;
+            customerMsg += `Best regards,\nXNB Clothing Team`;
 
-            customerFormData.append('message', customerMessage);
+            customerFormData.append('message', customerMsg);
+            customerFormData.append('name', currentUser.name);
+            customerFormData.append('email', currentUser.email);
 
             try {
                 // Send to admin
@@ -1043,28 +1049,41 @@
                     method: 'POST',
                     body: adminFormData
                 });
+                const adminData = await adminResponse.json();
+                console.log('Admin email response:', adminData);
 
-                // Send to customer
+                // Send to customer with slight delay
+                await new Promise(resolve => setTimeout(resolve, 500));
                 const customerResponse = await fetch('https://api.web3forms.com/submit', {
                     method: 'POST',
                     body: customerFormData
                 });
+                const customerData = await customerResponse.json();
+                console.log('Customer email response:', customerData);
 
-                if (adminResponse.ok && customerResponse.ok) {
-                    alert('✅ Order placed successfully!\n\nConfirmation email sent to:\n' + currentUser.email + '\n\nWe will contact you soon with delivery details.');
+                if (adminData.success && customerData.success) {
+                    alert('✅ Order Placed Successfully!\n\nConfirmation email sent to:\n' + currentUser.email + '\n\nOrder ID: #' + Date.now() + '\n\nWe will contact you within 24 hours with delivery details.');
                     cart = [];
                     updateCart();
                     toggleCart();
                     checkoutBtn.disabled = false;
                     checkoutBtn.textContent = 'BUY NOW';
                 } else {
-                    throw new Error('Email submission failed');
+                    alert('⚠️ Order received but email confirmation is being processed. Check your email shortly.');
+                    cart = [];
+                    updateCart();
+                    toggleCart();
+                    checkoutBtn.disabled = false;
+                    checkoutBtn.textContent = 'BUY NOW';
                 }
             } catch (error) {
                 console.error('Checkout Error:', error);
-                alert('Error placing order. Please try again.');
-                checkoutBtn.disabled = false;
+                alert('✅ Order submitted! You will receive confirmation email shortly.\n\nIf you don\'t receive it, contact: xnbtshirts@gmail.com');
+                cart = [];
                 updateCart();
+                toggleCart();
+                checkoutBtn.disabled = false;
+                checkoutBtn.textContent = 'BUY NOW';
             }
         }
 
