@@ -991,19 +991,34 @@
             const delivery = document.getElementById('delivery').textContent;
             const total = document.getElementById('total').textContent;
 
-            const orderData = new FormData();
-            orderData.append('_subject', `New Order from ${currentUser.name}!`);
-            orderData.append('Customer Name', currentUser.name);
-            orderData.append('Customer Email', currentUser.email);
-            orderData.append('Items', itemsString);
-            orderData.append('Subtotal', subtotal);
-            orderData.append('Tax', tax);
-            orderData.append('Delivery', delivery);
-            orderData.append('TOTAL', total);
+            // EMAIL TO YOU (ADMIN)
+            const adminEmail = new FormData();
+            adminEmail.append('_subject', `🛍️ NEW ORDER from ${currentUser.name}!`);
+            adminEmail.append('_to', 'xnbtshirts@gmail.com');
+            adminEmail.append('Customer Name', currentUser.name);
+            adminEmail.append('Customer Email', currentUser.email);
+            adminEmail.append('Order Items', itemsString);
+            adminEmail.append('Subtotal', subtotal);
+            adminEmail.append('Tax (10%)', tax);
+            adminEmail.append('Delivery Charges', delivery);
+            adminEmail.append('FINAL TOTAL', total);
+            adminEmail.append('Order Date', new Date().toLocaleString('en-IN'));
+
+            // EMAIL TO CUSTOMER
+            const customerEmail = new FormData();
+            customerEmail.append('_subject', `✅ Order Confirmation - XNB Clothing`);
+            customerEmail.append('_to', currentUser.email);
+            customerEmail.append('_template', 'table');
+            customerEmail.append('name', currentUser.name);
+            customerEmail.append('message', `Thank you for your order!\n\nOrder Details:\n${itemsString}\n\nSubtotal: ${subtotal}\nTax: ${tax}\nDelivery: ${delivery}\n\nFINAL TOTAL: ${total}\n\nWe'll contact you soon to confirm your order.\n\nBest regards,\nXNB Clothing Team`);
 
             try {
-                await fetch(signupForm.action, {method: 'POST', body: orderData, mode: 'no-cors'});
-                alert('Thanks for purchasing! An enquiry will be sent to your email about your order.');
+                // Send to admin
+                await fetch(signupForm.action, {method: 'POST', body: adminEmail, mode: 'no-cors'});
+                // Send to customer
+                await fetch(signupForm.action, {method: 'POST', body: customerEmail, mode: 'no-cors'});
+                
+                alert('✅ Order placed successfully! Check your email for order confirmation.');
                 cart = [];
                 updateCart();
                 toggleCart();
